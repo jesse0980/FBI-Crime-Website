@@ -1,0 +1,37 @@
+* {
+
+  background-color: rgb(211, 211, 213);
+  font-family: Calibri;
+  text-align: center;
+
+}
+
+button{
+
+  padding: 20px;
+  margin: 30px;
+  border-radius: 10%;
+  background-color: bisque;
+  width: 100px;
+
+}
+
+button:hover {
+
+  cursor: pointer;
+  background-color: burlywood;
+
+}
+
+h1 {
+
+  font-size: 40px;
+
+}
+
+p {
+
+  text-align: left;
+  font-size: 23px;
+
+}

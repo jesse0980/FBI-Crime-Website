@@ -1,0 +1,339 @@
+//=======================Query 1==================================//
+
+--Over an [8 year period], show the number of [high value] cargo thefts in school zones.
+
+//================================================================//
+
+
+SELECT data_year, COUNT(*) 
+FROM cargo_theft
+WHERE location_name = 'School-Elementary/Secondary' OR
+    location_name = 'School/College' AND
+    stolen_value >= 10000 AND
+    data_year > 2013 AND data_year <= 2022
+GROUP BY data_year
+ORDER BY data_year ASC;
+   
+
+
+
+
+
+//=======================Query 2==================================//
+
+--Display the name of cities that have had (for the past 10 years) 
+--a number of crimes per year, at least [20% greater] than the average number 
+--of crimes per year across the country
+
+//================================================================//
+
+
+WITH avgCrimes(average_crime_perYear) AS 
+	(
+	SELECT AVG(crimes_per_year)
+ 	FROM 
+		(
+ 		SELECT pub_agency_name,(cargo_count + hate_count + trafficking_count)/9 AS crimes_per_year
+		FROM 
+			(
+		SELECT pub_agency_name, COUNT(*) AS cargo_count
+    		FROM cargo_theft
+    		WHERE agency_type_name = 'City' AND
+    		data_year > 2012 AND data_year < 2022
+    		GROUP BY pub_agency_name
+    		),
+    		(
+		SELECT location_name, COUNT(*) AS hate_count
+    		FROM hate_crime
+    		WHERE agency_type_name = 'City'AND
+    		data_year > 2012 and data_year < 2022
+    		GROUP BY location_name
+    		),
+    		(
+		SELECT agency_name, COUNT(*) AS trafficking_count
+    		FROM human_trafficking
+    		WHERE agency_type = 'City'AND
+    		data_year > 2012 AND data_year < 2022
+    		GROUP BY agency_name
+    		)
+		WHERE pub_agency_name = location_name AND
+    			pub_agency_name = agency_name
+ 		)
+	)
+    
+SELECT pub_agency_name, crimes_per_year
+FROM
+	(
+	SELECT pub_agency_name, (cargo_count + hate_count + trafficking_count) AS total_crime_count,
+		(cargo_count + hate_count + trafficking_count)/9 AS crimes_per_year
+	FROM 
+		(
+		SELECT pub_agency_name, COUNT(*) AS cargo_count
+    		FROM cargo_theft
+    		WHERE agency_type_name = 'City' AND
+    		data_year > 2012 AND data_year < 2022
+    		GROUP BY pub_agency_name
+    		),
+    		(
+		SELECT location_name, COUNT(*) AS hate_count
+    		FROM hate_crime
+    		WHERE agency_type_name = 'City'AND
+    		data_year > 2012 and data_year < 2022
+    		GROUP BY location_name
+    		),
+    		(
+		SELECT agency_name, COUNT(*) AS trafficking_count
+    		FROM human_trafficking
+    		WHERE agency_type = 'City'AND
+    		data_year > 2012 AND data_year < 2022
+    		GROUP BY agency_name
+    		)
+	WHERE pub_agency_name = location_name and
+    		pub_agency_name = agency_name
+    	), avgCrimes
+WHERE crimes_per_year > avgCrimes.average_crime_perYear
+ORDER BY crimes_per_year DESC;
+
+
+
+
+
+
+//=======================Query 3==================================//
+
+--Considering all types of crime, display the trend of the number of crimes cleared 
+--by county vs city departments from 2013 to 2021.
+
+//===============================================================//
+
+
+SELECT data_year, cityCount_ct + cityCount_hc + cityCount_ht as cityCases,
+        countyCount_ct + countyCount_hc + countyCount_ht as countyCases
+FROM(select data_year, COUNT(*) AS cityCount_ct
+	FROM cargo_theft
+      WHERE agency_type_name = 'City'
+      GROUP BY data_year
+      ),
+	(
+	SELECT data_year AS year2, COUNT(*) AS countyCount_ct
+    	FROM cargo_theft
+    	WHERE agency_type_name = 'County'
+    	GROUP BY data_year
+    	),
+    	(
+	SELECT data_year AS year3, COUNT(*) AS cityCount_hc
+    	FROM hate_crime
+    	WHERE agency_type_name = 'City' AND
+    		data_year > 2012 AND data_year < 2022
+    	GROUP BY data_year
+    	),
+    	(
+	SELECT data_year AS year4, COUNT(*) AS countyCount_hc
+    	FROM hate_crime
+    	WHERE agency_type_name = 'County' AND
+    		data_year > 2012 AND data_year < 2022
+    	GROUP BY data_year
+    	),
+    	(
+	SELECT data_year AS year5, COUNT(*) AS cityCount_ht
+    	FROM human_trafficking
+    	WHERE agency_type = 'City' AND
+    		data_year > 2012 AND data_year < 2022
+    	GROUP BY data_year
+    	),
+    	(
+	SELECT data_year AS year6, COUNT(*) AS countyCount_ht
+    	FROM human_trafficking
+   	WHERE agency_type = 'County' AND
+    		data_year > 2012 AND data_year < 2022
+    	GROUP BY data_year
+    	)
+WHERE data_year = year2 AND
+    	year2 = year3 AND
+    	year3 = year4 AND
+   	year4 = year5 AND
+    	year5 = year6
+ORDER BY data_year ASC;
+
+
+
+
+
+
+//=======================Query 4==================================//
+
+-- Cargo theft incidents by agency type and year, where the total
+-- stolen value is greater than the average stolen value for that year
+
+//================================================================//
+
+
+SELECT ct.DATA_YEAR, ct.AGENCY_TYPE_NAME, COUNT(*) AS total_incidents
+FROM cargo_theft ct,
+ (
+  SELECT DATA_YEAR, AVG(STOLEN_VALUE) as avg_stolen_value
+  FROM cargo_theft
+  GROUP BY DATA_YEAR
+)  temp
+WHERE ct.data_year = temp.data_year AND
+    ct.STOLEN_VALUE > temp.avg_stolen_value
+GROUP BY ct.DATA_YEAR, ct.AGENCY_TYPE_NAME
+ORDER BY data_year ASC;
+
+
+
+
+
+
+
+//=======================Query 5==================================//
+
+-- Trend in stolen value per cargo theft, victims per hate crime,
+-- and victims per human trafficking incident over range of years
+
+//================================================================//
+
+
+SELECT ct.data_year, avg_stolen_cargo_value, avg_hateCrime_victims_per_incident, avg_humanTrafficking_victims_per_incident 
+FROM            
+	(
+	SELECT data_year, SUM(STOLEN_VALUE)/COUNT(*) AS avg_stolen_cargo_value
+ 	FROM cargo_theft
+ 	GROUP BY data_year
+	)ct,
+	(
+	SELECT data_year, SUM(victim_count)/COUNT(*) AS avg_hateCrime_victims_per_incident
+ 	FROM hate_crime
+ 	GROUP BY data_year
+	)hc,
+	(
+	SELECT data_year, SUM(cleared_count)/COUNT(*) AS avg_humanTrafficking_victims_per_incident
+ 	FROM human_trafficking
+ 	GROUP BY data_year
+	)ht
+WHERE ct.data_year = hc.data_year 
+      AND ct.data_year = ht.data_year 
+      AND ct.data_year >= $start 
+      AND ct.data_year <= $end
+ORDER BY ct.data_year ASC;
+
+
+
+
+
+//=======================Query 6==================================//
+
+-- percentage of hate crimes groups
+
+//================================================================//
+//African American
+            $query = "SELECT q.DATA_YEAR, q.Count/q2.Total as Percentage
+            FROM(
+            SELECT DATA_YEAR, COUNT(DATA_YEAR) as Count
+            FROM HATE_CRIME
+            WHERE BIAS_DESC = 'Anti-Black or African American'
+            GROUP BY DATA_YEAR
+            ORDER BY DATA_YEAR ASC )q
+            JOIN(
+            SELECT DATA_YEAR, COUNT(DATA_YEAR) as Total
+            FROM HATE_CRIME
+            GROUP BY DATA_YEAR
+            ORDER BY DATA_YEAR ASC)q2
+            ON q.DATA_YEAR = q2.DATA_YEAR
+            WHERE q.DATA_YEAR >= $start AND q.DATA_YEAR <= $end";
+
+//White
+            $query = "SELECT q.DATA_YEAR, q.Count/q2.Total as Percentage
+            FROM(
+            SELECT DATA_YEAR, COUNT(DATA_YEAR) as Count
+            FROM HATE_CRIME
+            WHERE BIAS_DESC = 'Anti-White'
+            GROUP BY DATA_YEAR
+            ORDER BY DATA_YEAR ASC )q
+            JOIN(
+            SELECT DATA_YEAR, COUNT(DATA_YEAR) as Total
+            FROM HATE_CRIME
+            GROUP BY DATA_YEAR
+            ORDER BY DATA_YEAR ASC)q2
+            ON q.DATA_YEAR = q2.DATA_YEAR
+            WHERE q.DATA_YEAR >= $start AND q.DATA_YEAR <= $end";
+
+//Asian
+            $query = "SELECT q.DATA_YEAR, q.Count/q2.Total as Percentage
+            FROM(
+            SELECT DATA_YEAR, COUNT(DATA_YEAR) as Count
+            FROM HATE_CRIME
+            WHERE BIAS_DESC = 'Anti-Asian'
+            GROUP BY DATA_YEAR
+            ORDER BY DATA_YEAR ASC )q
+            JOIN(
+            SELECT DATA_YEAR, COUNT(DATA_YEAR) as Total
+            FROM HATE_CRIME
+            GROUP BY DATA_YEAR
+            ORDER BY DATA_YEAR ASC)q2
+            ON q.DATA_YEAR = q2.DATA_YEAR
+            WHERE q.DATA_YEAR >= $start AND q.DATA_YEAR <= $end";
+
+//Hispanic
+            $query = "SELECT q.DATA_YEAR, q.Count/q2.Total as Percentage
+            FROM(
+            SELECT DATA_YEAR, COUNT(DATA_YEAR) as Count
+            FROM HATE_CRIME
+            WHERE BIAS_DESC = 'Anti-Hispanic or Latino'
+            GROUP BY DATA_YEAR
+            ORDER BY DATA_YEAR ASC )q
+            JOIN(
+            SELECT DATA_YEAR, COUNT(DATA_YEAR) as Total
+            FROM HATE_CRIME
+            GROUP BY DATA_YEAR
+            ORDER BY DATA_YEAR ASC)q2
+            ON q.DATA_YEAR = q2.DATA_YEAR
+            WHERE q.DATA_YEAR >= $start AND q.DATA_YEAR <= $end";
+
+//Gay
+             $query = "SELECT q.DATA_YEAR, q.Count/q2.Total as Percentage
+             FROM(
+             SELECT DATA_YEAR, COUNT(DATA_YEAR) as Count
+             FROM HATE_CRIME
+             WHERE BIAS_DESC = 'Anti-Gay (Male)'
+             GROUP BY DATA_YEAR
+             ORDER BY DATA_YEAR ASC )q
+             JOIN(
+             SELECT DATA_YEAR, COUNT(DATA_YEAR) as Total
+             FROM HATE_CRIME
+             GROUP BY DATA_YEAR
+             ORDER BY DATA_YEAR ASC)q2
+             ON q.DATA_YEAR = q2.DATA_YEAR
+             WHERE q.DATA_YEAR >= $start AND q.DATA_YEAR <= $end";
+
+ //Jewish
+             $query = "SELECT q.DATA_YEAR, q.Count/q2.Total as Percentage
+             FROM(
+             SELECT DATA_YEAR, COUNT(DATA_YEAR) as Count
+             FROM HATE_CRIME
+             WHERE BIAS_DESC = 'Anti-Jewish'
+             GROUP BY DATA_YEAR
+             ORDER BY DATA_YEAR ASC )q
+             JOIN(
+             SELECT DATA_YEAR, COUNT(DATA_YEAR) as Total
+             FROM HATE_CRIME
+             GROUP BY DATA_YEAR
+             ORDER BY DATA_YEAR ASC)q2
+             ON q.DATA_YEAR = q2.DATA_YEAR
+             WHERE q.DATA_YEAR >= $start AND q.DATA_YEAR <= $end";
+
+//Muslim
+              $query = "SELECT q.DATA_YEAR, q.Count/q2.Total as Percentage
+              FROM(
+              SELECT DATA_YEAR, COUNT(DATA_YEAR) as Count
+              FROM HATE_CRIME
+              WHERE BIAS_DESC = 'Anti-Islamic (Muslim)'
+              GROUP BY DATA_YEAR
+              ORDER BY DATA_YEAR ASC )q
+              JOIN(
+              SELECT DATA_YEAR, COUNT(DATA_YEAR) as Total
+              FROM HATE_CRIME
+              GROUP BY DATA_YEAR
+              ORDER BY DATA_YEAR ASC)q2
+              ON q.DATA_YEAR = q2.DATA_YEAR
+              WHERE q.DATA_YEAR >= $start AND q.DATA_YEAR <= $end";
