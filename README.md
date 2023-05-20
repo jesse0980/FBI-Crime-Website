@@ -3,7 +3,7 @@ Developed web application that allowed users to visualize/analyze 500,000 FBI cr
 
 Used Oracle SQL developer to create database with over 500,000 tuples. Used HTML, PHP, and CSS to create a seamless user experience.
 
-Site allows user to input desired characteristics and then visualize them on different graphs. 
+Site allows user to input desired crime characteristics and then visualize the different trends on multiple graphs. 
 
 
 
